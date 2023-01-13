@@ -18,7 +18,7 @@ public class LambdaExpr : MonoBehaviour
 
     public bool testUnpack = false;
 
-    public void ReplacePiecesWith(GameObject obj) {
+    public void ReplacePiecesWith(string specificVariable, GameObject obj) {
         // Replace all pieces with variableName with object
         List<GameObject> toDestroy = new List<GameObject>();
         List<GameObject> toInstantiate = new List<GameObject>();
@@ -26,14 +26,15 @@ public class LambdaExpr : MonoBehaviour
             var child = transform.GetChild(i);
             var piece = child.GetComponent<PieceScript>();
             if (piece != null) {
-                if (piece.variableName == variableName && piece.isVariable) {
+                if (piece.variableName == specificVariable && piece.isVariable) {
                     toDestroy.Add(child.gameObject);
                     toInstantiate.Add(obj);
                 }
             }
             var lambda = child.GetComponent<LambdaExpr>();
             if (lambda != null) {
-                lambda.ReplacePiecesWith(obj);
+                Debug.Log("Found lambda expr recursively");
+                lambda.ReplacePiecesWith(specificVariable, obj);
             }
         }
         for (int i = 0; i < toDestroy.Count; i++) {
@@ -65,7 +66,7 @@ public class LambdaExpr : MonoBehaviour
     {
         if (testReplace) {
             testReplace = false;
-            ReplacePiecesWith(toReplaceWith);
+            ReplacePiecesWith(this.variableName, toReplaceWith);
         }
         if (testUnpack) {
             testUnpack = false;

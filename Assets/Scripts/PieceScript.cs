@@ -64,18 +64,24 @@ public class PieceScript : MonoBehaviour
         }
     }
 
+    private void OnCollisionEnter2D(Collision2D other) {
+        OnCollisionStay2D(other);
+    }
+
     private void OnCollisionStay2D(Collision2D other) {
         var otherPiece = other.gameObject.GetComponent<PieceScript>();
         if (otherPiece != null) {
             if (otherPiece.inflateProgress < 1) return;
             if (this.inflateProgress < 1) return;
+            if (otherPiece.closingBracket) return;
+            
             if (closingBracket && otherPiece.transform.position.x > transform.position.x) {   
                 Debug.Log("Closing bracket hit");
                 var fullOtherPiece = otherPiece.openingBracket ? 
                     otherPiece.GetParentOrSelf() : otherPiece.gameObject;
                 var myExpr = GetParentExpr();
                 if (myExpr != null && myExpr.gameObject != fullOtherPiece) {
-                    myExpr.ReplacePiecesWith(fullOtherPiece.gameObject);
+                    myExpr.ReplacePiecesWith(GetParentExpr().variableName, fullOtherPiece.gameObject);
                     myExpr.Unpack();
                     fullOtherPiece.SetActive(false);
                 }
