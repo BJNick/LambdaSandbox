@@ -23,6 +23,9 @@ public class PieceScript : MonoBehaviour
 
     bool isCarried = false;
 
+    public float waitOnStart = 5;
+    bool waiting = true;
+
     public LambdaExpr GetParentExpr() {
         var parent = transform.parent;
         while (parent != null) {
@@ -47,12 +50,18 @@ public class PieceScript : MonoBehaviour
     void Start()
     {
         inflateProgress = 0;
+        waiting = true;
+        Invoke("StopWaiting", waitOnStart);
         if (isVariable)
             GetComponentInChildren<TextMeshPro>().text = variableName;
         else if (openingBracket)
             GetComponentInChildren<TextMeshPro>().text = variableName + ".(";
         else if (closingBracket)
             GetComponentInChildren<TextMeshPro>().text = ")";
+    }
+
+    void StopWaiting() {
+        waiting = false;
     }
 
     // Update is called once per frame
@@ -79,7 +88,7 @@ public class PieceScript : MonoBehaviour
             if (!Input.GetMouseButton(0)) {
                 isCarried = false;
                 noLongerCarried = true;
-                Start();
+                //Start();
             }
         } else {
             // Enable collider
@@ -87,7 +96,7 @@ public class PieceScript : MonoBehaviour
             GetComponentInChildren<Collider2D>().enabled = true;
         }
 
-        if (isVariable && noLongerCarried) {
+        if ((isVariable || openingBracket) && noLongerCarried) {
             // Raycast to the left to find opening bracket
             var ray = new Ray2D(transform.position, Vector2.left);
             var hits = Physics2D.RaycastAll(ray.origin, ray.direction, 100, LayerMask.GetMask("Opening Bracket"));
@@ -112,10 +121,20 @@ public class PieceScript : MonoBehaviour
             if (closestClosingBracket != null) {
                 var closestClosingBracketExpr = closestClosingBracket.GetParentExpr();
                 if (closestClosingBracketExpr != null) {
-                    transform.SetParent(closestClosingBracketExpr.transform);
+                    if (isVariable) {
+                        transform.SetParent(closestClosingBracketExpr.transform);
+                    } else if (openingBracket){
+                        GetParentExpr().transform.SetParent(closestClosingBracketExpr.transform);
+                        Debug.Log("Parenting to " + closestClosingBracketExpr.gameObject.name);
+                    }
                 }
             } else {
-                transform.SetParent(null);
+                if (isVariable) {
+                    transform.SetParent(null);
+                } else if (openingBracket) {
+                    GetParentExpr().transform.SetParent(null);
+                    Debug.Log("Parenting to null");
+                }
             }
         }
     }
@@ -127,8 +146,8 @@ public class PieceScript : MonoBehaviour
     private void OnCollisionStay2D(Collision2D other) {
         var otherPiece = other.gameObject.GetComponent<PieceScript>();
         if (otherPiece != null) {
-            if (otherPiece.inflateProgress < 1) return;
-            if (this.inflateProgress < 1) return;
+            if (otherPiece.waiting) return;
+            if (this.waiting) return;
             if (otherPiece.closingBracket) return;
             
             if (closingBracket && otherPiece.transform.position.x > transform.position.x) {   
