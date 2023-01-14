@@ -56,6 +56,13 @@ public class LambdaExpr : MonoBehaviour
         openingBracket.gameObject.SetActive(false);
         closingBracket.gameObject.SetActive(false);
     }
+    public PieceScript GetOpeningBracket() {
+        return openingBracket;
+    }
+
+    public PieceScript GetClosingBracket() {
+        return closingBracket;
+    }
 
     void Start()
     {

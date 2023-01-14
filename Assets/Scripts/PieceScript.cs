@@ -19,6 +19,10 @@ public class PieceScript : MonoBehaviour
 
     float inflateProgress = 0;
 
+    public float lineSeparation = 1.5f;
+
+    bool isCarried = false;
+
     public LambdaExpr GetParentExpr() {
         var parent = transform.parent;
         while (parent != null) {
@@ -62,6 +66,58 @@ public class PieceScript : MonoBehaviour
                 inflateProgress = 1;
             }
         }
+
+        bool noLongerCarried = false;
+
+        if (isCarried) {
+            var mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            var newPos = new Vector3(mousePos.x, Mathf.Round(mousePos.y/lineSeparation)*lineSeparation, 0);
+            transform.position = newPos;
+            // Disable collider
+            GetComponent<Rigidbody2D>().isKinematic = true;
+            GetComponentInChildren<Collider2D>().enabled = false;
+            if (!Input.GetMouseButton(0)) {
+                isCarried = false;
+                noLongerCarried = true;
+                Start();
+            }
+        } else {
+            // Enable collider
+            GetComponent<Rigidbody2D>().isKinematic = false;
+            GetComponentInChildren<Collider2D>().enabled = true;
+        }
+
+        if (isVariable && noLongerCarried) {
+            // Raycast to the left to find opening bracket
+            var ray = new Ray2D(transform.position, Vector2.left);
+            var hits = Physics2D.RaycastAll(ray.origin, ray.direction, 100, LayerMask.GetMask("Opening Bracket"));
+            // find the closest one with closing bracket to the right of this body
+            PieceScript closestClosingBracket = null;
+            for (int i = 0; i < hits.Length; i++) {
+                var hit = hits[i];
+                var hitPiece = hit.rigidbody.GetComponent<PieceScript>();
+                var hitExpr = hitPiece.GetParentExpr();
+                var closingBracket = hitExpr.GetClosingBracket();
+                if (closingBracket != null) {
+                    var closingBracketPos = closingBracket.transform.position;
+                    if (closingBracketPos.x > transform.position.x) {
+                        if (closestClosingBracket == null || 
+                            closingBracketPos.x < closestClosingBracket.transform.position.x) {
+                            closestClosingBracket = hitPiece;
+                        }
+                    }
+                }
+            }
+            // make the closestClosingBracket the parent of this body
+            if (closestClosingBracket != null) {
+                var closestClosingBracketExpr = closestClosingBracket.GetParentExpr();
+                if (closestClosingBracketExpr != null) {
+                    transform.SetParent(closestClosingBracketExpr.transform);
+                }
+            } else {
+                transform.SetParent(null);
+            }
+        }
     }
 
     private void OnCollisionEnter2D(Collision2D other) {
@@ -86,6 +142,13 @@ public class PieceScript : MonoBehaviour
                     fullOtherPiece.SetActive(false);
                 }
             }
+        }
+    }
+
+    private void OnMouseOver() {
+        // If mouse held, move piece
+        if (Input.GetMouseButtonDown(0)) {
+            isCarried = true;
         }
     }
 
