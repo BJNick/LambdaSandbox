@@ -1,12 +1,16 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
-public class ClickablePause : MonoBehaviour
+public class ClickablePause : MonoBehaviour, IPointerClickHandler
 {
     bool isPaused = false;
 
     public bool startPaused = false;
+
+    public bool restartButton = false;
 
     public Sprite pauseSprite;
     public Sprite playSprite;
@@ -24,16 +28,27 @@ public class ClickablePause : MonoBehaviour
     }
 
     private void OnMouseDown() {
+        if (restartButton) {
+            Time.timeScale = 1;
+            UnityEngine.SceneManagement.SceneManager.LoadScene(0);
+            return;
+        }
+
         // Pause/unpause all physics
-        Debug.Log("Clicked");
         isPaused = !isPaused;
         if (isPaused) {
             Time.timeScale = 0;
-            GetComponent<SpriteRenderer>().sprite = playSprite;
+            try { GetComponent<SpriteRenderer>().sprite = playSprite; } catch {}
+            try { GetComponent<Image>().sprite = playSprite; } catch {}
         } else {
             Time.timeScale = 1;
-            GetComponent<SpriteRenderer>().sprite = pauseSprite;
+            try { GetComponent<SpriteRenderer>().sprite = pauseSprite; } catch {}
+            try { GetComponent<Image>().sprite = pauseSprite; } catch {}
         }
+    }
+
+    public void OnPointerClick(PointerEventData eventData) {
+        OnMouseDown();
     }
 
 

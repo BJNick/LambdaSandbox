@@ -26,6 +26,10 @@ public class PieceScript : MonoBehaviour
     public float waitOnStart = 5;
     bool waiting = true;
 
+    public bool grabbable = true;
+
+    public bool doNotOverrideText = false;
+
     public LambdaExpr GetParentExpr() {
         var parent = transform.parent;
         while (parent != null) {
@@ -46,12 +50,23 @@ public class PieceScript : MonoBehaviour
         return parent.gameObject;
     }
 
+    public GameObject GetOutermostParentTransform() {
+        var parent = transform;
+        while (parent.parent != null) {
+            parent = parent.parent;
+        }
+        return parent.gameObject;
+    }
+
     // Start is called before the first frame update
     void Start()
     {
         inflateProgress = 0;
         waiting = true;
         Invoke("StopWaiting", waitOnStart);
+        if (doNotOverrideText) {
+            return;
+        }
         if (isVariable)
             GetComponentInChildren<TextMeshPro>().text = variableName;
         else if (openingBracket)
@@ -96,77 +111,102 @@ public class PieceScript : MonoBehaviour
             GetComponentInChildren<Collider2D>().enabled = true;
         }
 
-        if ((isVariable || openingBracket) && noLongerCarried) {
-            // Raycast to the left to find opening bracket
-            var ray = new Ray2D(transform.position, Vector2.left);
-            var hits = Physics2D.RaycastAll(ray.origin, ray.direction, 100, LayerMask.GetMask("Opening Bracket"));
-            // find the closest one with closing bracket to the right of this body
-            PieceScript closestClosingBracket = null;
-            for (int i = 0; i < hits.Length; i++) {
-                var hit = hits[i];
-                var hitPiece = hit.rigidbody.GetComponent<PieceScript>();
-                var hitExpr = hitPiece.GetParentExpr();
-                var closingBracket = hitExpr.GetClosingBracket();
-                if (closingBracket != null) {
-                    var closingBracketPos = closingBracket.transform.position;
-                    if (closingBracketPos.x > transform.position.x) {
-                        if (closestClosingBracket == null || 
-                            closingBracketPos.x < closestClosingBracket.transform.position.x) {
-                            closestClosingBracket = hitPiece;
-                        }
+        if (noLongerCarried) {
+            // Update context for all pieces in the scene
+            var pieces = GameObject.FindObjectsOfType<PieceScript>();
+            foreach (var piece in pieces) {
+                piece.UpdatePieceContext();
+            }
+        }
+    }
+
+    void UpdatePieceContext() {
+        if (!isVariable && !openingBracket) return;
+        // Raycast to the left to find opening bracket
+        var ray = new Ray2D(transform.position, Vector2.left);
+        var hits = Physics2D.RaycastAll(ray.origin, ray.direction, 100, LayerMask.GetMask("Opening Bracket"));
+        // find the closest one with closing bracket to the right of this body
+        PieceScript closestClosingBracket = null;
+        for (int i = 0; i < hits.Length; i++) {
+            var hit = hits[i];
+            var hitPiece = hit.rigidbody.GetComponent<PieceScript>();
+            var hitExpr = hitPiece.GetParentExpr();
+            var closingBracket = hitExpr.GetClosingBracket();
+            if (closingBracket != null) {
+                var closingBracketPos = closingBracket.transform.position;
+                if (closingBracketPos.x > transform.position.x) {
+                    if (closestClosingBracket == null || 
+                        closingBracketPos.x < closestClosingBracket.transform.position.x) {
+                        closestClosingBracket = hitPiece;
                     }
                 }
             }
-            // make the closestClosingBracket the parent of this body
-            if (closestClosingBracket != null) {
-                var closestClosingBracketExpr = closestClosingBracket.GetParentExpr();
-                if (closestClosingBracketExpr != null) {
-                    if (isVariable) {
-                        transform.SetParent(closestClosingBracketExpr.transform);
-                    } else if (openingBracket){
-                        GetParentExpr().transform.SetParent(closestClosingBracketExpr.transform);
-                        Debug.Log("Parenting to " + closestClosingBracketExpr.gameObject.name);
-                    }
-                }
-            } else {
+        }
+        // make the closestClosingBracket the parent of this body
+        if (closestClosingBracket != null) {
+            var closestClosingBracketExpr = closestClosingBracket.GetParentExpr();
+            if (closestClosingBracketExpr != null) {
                 if (isVariable) {
-                    transform.SetParent(null);
-                } else if (openingBracket) {
-                    GetParentExpr().transform.SetParent(null);
-                    Debug.Log("Parenting to null");
+                    transform.SetParent(closestClosingBracketExpr.transform);
+                } else if (openingBracket){
+                    GetParentExpr().transform.SetParent(closestClosingBracketExpr.transform);
+                    Debug.Log("Parenting to " + closestClosingBracketExpr.gameObject.name);
+                }
+            }
+        } else {
+            if (isVariable) {
+                transform.SetParent(null);
+            } else if (openingBracket) {
+                GetParentExpr().transform.SetParent(null);
+                Debug.Log("Parenting to null");
+            }
+        }
+    }
+
+    void TriggerSubstitution(LambdaExpr myExpr, GameObject fullOtherPiece) {
+        if (!myExpr.IsLeftmostExpression()) return;
+        if (!myExpr.IsBodyInstantiated()) {
+            myExpr.InstantiateBody();
+            return;
+        }
+        
+        myExpr.ReplacePiecesWith(GetParentExpr().variableName, fullOtherPiece.gameObject);
+        myExpr.Unpack();
+        fullOtherPiece.SetActive(false);
+    }
+
+    void ClosingBracketCheck(Collision2D other) {
+        if (!closingBracket) return;
+
+        var otherPiece = other.gameObject.GetComponent<PieceScript>();
+        if (otherPiece != null) {
+            if (otherPiece.waiting) return;
+            if (this.waiting) return;
+            //if (otherPiece.closingBracket) return;
+            
+            if (otherPiece.transform.position.x > transform.position.x) {   
+                Debug.Log("Closing bracket trigger hit");
+                var fullOtherPiece = otherPiece.openingBracket ? 
+                    otherPiece.GetParentOrSelf() : otherPiece.gameObject;
+                var myExpr = GetParentExpr();
+                if (myExpr != null && myExpr.gameObject != fullOtherPiece) {
+                    TriggerSubstitution(myExpr, fullOtherPiece);
                 }
             }
         }
     }
 
     private void OnCollisionEnter2D(Collision2D other) {
-        OnCollisionStay2D(other);
+        ClosingBracketCheck(other);
     }
 
     private void OnCollisionStay2D(Collision2D other) {
-        var otherPiece = other.gameObject.GetComponent<PieceScript>();
-        if (otherPiece != null) {
-            if (otherPiece.waiting) return;
-            if (this.waiting) return;
-            if (otherPiece.closingBracket) return;
-            
-            if (closingBracket && otherPiece.transform.position.x > transform.position.x) {   
-                Debug.Log("Closing bracket hit");
-                var fullOtherPiece = otherPiece.openingBracket ? 
-                    otherPiece.GetParentOrSelf() : otherPiece.gameObject;
-                var myExpr = GetParentExpr();
-                if (myExpr != null && myExpr.gameObject != fullOtherPiece) {
-                    myExpr.ReplacePiecesWith(GetParentExpr().variableName, fullOtherPiece.gameObject);
-                    myExpr.Unpack();
-                    fullOtherPiece.SetActive(false);
-                }
-            }
-        }
+        ClosingBracketCheck(other);
     }
 
     private void OnMouseOver() {
         // If mouse held, move piece
-        if (Input.GetMouseButtonDown(0)) {
+        if (Input.GetMouseButtonDown(0) && grabbable) {
             isCarried = true;
         }
     }
