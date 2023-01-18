@@ -61,9 +61,7 @@ public class PieceScript : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        inflateProgress = 0;
-        waiting = true;
-        Invoke("StopWaiting", waitOnStart);
+        Reinflate();
         if (doNotOverrideText) {
             return;
         }
@@ -77,6 +75,14 @@ public class PieceScript : MonoBehaviour
 
     void StopWaiting() {
         waiting = false;
+    }
+
+    public void Reinflate() {
+        inflateProgress = 0;
+        waiting = true;
+        CancelInvoke("StopWaiting");
+        Invoke("StopWaiting", waitOnStart);
+        GetComponent<Rigidbody2D>().velocity = Vector3.zero;
     }
 
     // Update is called once per frame

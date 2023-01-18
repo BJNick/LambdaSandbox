@@ -17,6 +17,7 @@ public class LambdaExpr : MonoBehaviour
     public bool testReplace = false;
 
     public bool testUnpack = false;
+    public bool testCollapse = false;
 
     public bool remoteBody = false;
     public float remoteBodyY = 0;
@@ -46,14 +47,11 @@ public class LambdaExpr : MonoBehaviour
             // instantiate at the same position as destroyed object
             var pos = toDestroy[i].transform.position;
             var newObj = Instantiate(toInstantiate[i], pos, Quaternion.identity, transform);
-            // For all children in new object, set their position to pos + j
-            // TODO: Make it recursive
-            for (int j = 0; j < newObj.transform.childCount; j++) {
-                var child = newObj.transform.GetChild(j);
-                child.transform.position = pos + child.transform.localPosition*0.01f;
-                if (child.GetComponent<LambdaExpr>() != null) {
-                    child.GetComponent<LambdaExpr>().CollapseChildren(0.01f, pos);
-                }
+            var lambda = newObj.GetComponent<LambdaExpr>();
+            if (lambda != null) {
+                lambda.CollapseTest(0.1f, pos);
+            } else {
+                newObj.transform.position = pos;    
             }
             Destroy(toDestroy[i]);
         }
@@ -72,6 +70,29 @@ public class LambdaExpr : MonoBehaviour
                 lambda.CollapseChildren(factor * 0.1f, initPos + Vector3.right*localPos.x*factor);
             }
         }
+    }
+
+    public float CollapseTest(float factor, Vector3 newPos) {
+        var bracketPos = openingBracket.transform.position;
+        float totalLength = 0;
+        for (int i = 0; i < transform.childCount; i++) {
+            var child = transform.GetChild(i);
+            var piece = child.GetComponent<PieceScript>();
+            if (piece != null){
+                var diff = child.position - bracketPos;
+                var resultPos = newPos + new Vector3(diff.x*factor, diff.y, diff.z);
+                child.position = resultPos;
+                totalLength += 1 * factor;
+                piece.Reinflate();
+                // child.GetComponent<Rigidbody2D>().MovePosition(resultPos);  // DEFINITELY NOT WORKING
+            }
+            var lambda = child.GetComponent<LambdaExpr>();
+            if (lambda != null) {
+                var localPos = lambda.openingBracket.gameObject.transform.position - bracketPos;
+                totalLength += lambda.CollapseTest(factor, newPos + new Vector3(localPos.x*factor, localPos.y, localPos.z));
+            }
+        }
+        return totalLength;
     }
 
     public void Unpack() {
@@ -116,15 +137,19 @@ public class LambdaExpr : MonoBehaviour
                     toInstantiate.Add(piece.GetOutermostParentTransform());
                 }
             }
+            var anchor = new Vector3(0, remoteBodyY, 0);
+            var exprPos = openingBracket.transform.position;
             foreach (var obj in toInstantiate) {
                 var pos = obj.transform.position;
-                var newObj = Instantiate(obj, openingBracket.transform.position, Quaternion.identity, transform.parent);
-                for (int i = 0; i < newObj.transform.childCount; i++) {
-                    var child = newObj.transform.GetChild(i);
-                    child.transform.position = openingBracket.transform.position + Vector3.right*child.transform.position.x*0.1f;
-                    if (child.GetComponent<LambdaExpr>() != null) {
-                        child.GetComponent<LambdaExpr>().CollapseChildren(0.01f, openingBracket.transform.position);
-                    }
+                var newObj = Instantiate(obj, exprPos, Quaternion.identity, transform.parent);
+                var lambda = newObj.GetComponent<LambdaExpr>();
+                if (lambda != null) {
+                    var innerOpeningBracket = obj.GetComponent<LambdaExpr>().openingBracket.gameObject.transform.position;
+                    var diff = innerOpeningBracket - anchor;
+                    lambda.CollapseTest(0.1f,  exprPos + new Vector3(diff.x*0.1f, diff.y, diff.z));
+                } else {
+                    var diff = obj.transform.position - anchor;
+                    newObj.transform.position = exprPos + diff*0.1f;
                 }
             }
             remoteBodyInstantiated = true;
@@ -139,7 +164,7 @@ public class LambdaExpr : MonoBehaviour
         closingBracket.variableName = variableName;
     }
 
-    void Update()
+    void FixedUpdate()
     {
         if (testReplace) {
             testReplace = false;
@@ -148,6 +173,10 @@ public class LambdaExpr : MonoBehaviour
         if (testUnpack) {
             testUnpack = false;
             Unpack();
+        }
+        if (testCollapse) {
+            testCollapse = false;
+            CollapseTest(0.1f, new Vector3(-1, 1.5f, 0));
         }
     }
 }
