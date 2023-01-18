@@ -20,7 +20,7 @@ public class LambdaExpr : MonoBehaviour
     public bool testCollapse = false;
 
     public bool remoteBody = false;
-    public float remoteBodyY = 0;
+    public GameObject remoteBodySource = null;
 
     bool remoteBodyInstantiated = false;
 
@@ -128,7 +128,7 @@ public class LambdaExpr : MonoBehaviour
         if (remoteBody && !remoteBodyInstantiated) {
             Debug.Log("Instantiating body");
             // Raycast entire X axis on the coordinate to find the bodies to instantiate
-            var ray = new Ray2D(new Vector2(-100, remoteBodyY), Vector2.right);
+            var ray = new Ray2D(new Vector2(-100, remoteBodySource.transform.position.y), Vector2.right);
             var hits = Physics2D.RaycastAll(ray.origin, ray.direction, 200, LayerMask.GetMask("Piece", "Opening Bracket"));
             HashSet<GameObject> toInstantiate = new HashSet<GameObject>();
             foreach (var hit in hits) {
@@ -139,7 +139,7 @@ public class LambdaExpr : MonoBehaviour
                     toInstantiate.Add(piece.GetOutermostParentTransform());
                 }
             }
-            var anchor = new Vector3(0, remoteBodyY, 0);
+            var anchor = new Vector3(0, remoteBodySource.transform.position.y, 0);
             var exprPos = openingBracket.transform.position;
             foreach (var obj in toInstantiate) {
                 var pos = obj.transform.position;

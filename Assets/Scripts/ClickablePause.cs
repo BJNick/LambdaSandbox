@@ -24,7 +24,7 @@ public class ClickablePause : MonoBehaviour, IPointerClickHandler
     // Update is called once per frame
     void Update()
     {
-        
+        if (Input.GetKeyDown(KeyCode.Space) && !restartButton) OnMouseDown();
     }
 
     private void OnMouseDown() {
