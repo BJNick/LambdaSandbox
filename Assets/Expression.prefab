@@ -52,6 +52,10 @@ MonoBehaviour:
   toReplaceWith: {fileID: 0}
   testReplace: 0
   testUnpack: 0
+  testCollapse: 0
+  remoteBody: 0
+  remoteBodyY: 0
+  extraWaitForLong: 3
 --- !u!1001 &3834533184844477469
 PrefabInstance:
   m_ObjectHideFlags: 0

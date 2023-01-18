@@ -30,6 +30,8 @@ public class PieceScript : MonoBehaviour
 
     public bool doNotOverrideText = false;
 
+    bool triggerOverlaps = false;
+
     public LambdaExpr GetParentExpr() {
         var parent = transform.parent;
         while (parent != null) {
@@ -77,7 +79,8 @@ public class PieceScript : MonoBehaviour
         waiting = false;
     }
 
-    public void Reinflate() {
+    public void Reinflate(float waitTime = -1) {
+        if (waitTime < waitOnStart) waitTime = waitOnStart;
         inflateProgress = 0;
         waiting = true;
         CancelInvoke("StopWaiting");
@@ -96,6 +99,10 @@ public class PieceScript : MonoBehaviour
                 inflateProgress = 1;
             }
         }
+
+        /* var circleCol = GetComponentInChildren<CircleCollider2D>();
+        triggerOverlaps = circleCol.OverlapCollider(new ContactFilter2D(), new Collider2D[2]) > 1;
+        if (triggerOverlaps) Debug.Log("Trigger overlaps"); */
 
         bool noLongerCarried = false;
 
@@ -188,6 +195,8 @@ public class PieceScript : MonoBehaviour
         if (otherPiece != null) {
             if (otherPiece.waiting) return;
             if (this.waiting) return;
+            if (this.triggerOverlaps) return;
+            if (otherPiece.triggerOverlaps) return;
             //if (otherPiece.closingBracket) return;
             
             if (otherPiece.transform.position.x > transform.position.x) {   

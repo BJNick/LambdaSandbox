@@ -24,6 +24,8 @@ public class LambdaExpr : MonoBehaviour
 
     bool remoteBodyInstantiated = false;
 
+    public float extraWaitForLong = 1;
+
     public void ReplacePiecesWith(string specificVariable, GameObject obj) {
         // Replace all pieces with variableName with object
         List<GameObject> toDestroy = new List<GameObject>();
@@ -83,7 +85,7 @@ public class LambdaExpr : MonoBehaviour
                 var resultPos = newPos + new Vector3(diff.x*factor, diff.y, diff.z);
                 child.position = resultPos;
                 totalLength += 1 * factor;
-                piece.Reinflate();
+                piece.Reinflate(transform.childCount * extraWaitForLong);
                 // child.GetComponent<Rigidbody2D>().MovePosition(resultPos);  // DEFINITELY NOT WORKING
             }
             var lambda = child.GetComponent<LambdaExpr>();
