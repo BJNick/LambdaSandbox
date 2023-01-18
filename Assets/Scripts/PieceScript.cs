@@ -197,7 +197,8 @@ public class PieceScript : MonoBehaviour
             if (this.waiting) return;
             if (this.triggerOverlaps) return;
             if (otherPiece.triggerOverlaps) return;
-            //if (otherPiece.closingBracket) return;
+            if (otherPiece.closingBracket && !otherPiece.openingBracket) 
+                return; // to let remote body pieces to work
             
             if (otherPiece.transform.position.x > transform.position.x) {   
                 Debug.Log("Closing bracket trigger hit");
